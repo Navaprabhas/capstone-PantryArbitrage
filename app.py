@@ -23,7 +23,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Retrieve API Key from Environment or Sidebar
-# This is safe for GitHub: It checks the server's secrets first, then asks the user.
 api_key = os.environ.get("GOOGLE_API_KEY")
 
 with st.sidebar:
@@ -191,7 +190,13 @@ def agent_c_analyst(recipes_plan, baseline_cost=20.0, baseline_co2=3.0):
 
     for r in recipes:
         for ing in r.get("ingredients_used", []):
-            qty = float(ing.get("quantity", 1))
+            # SAFE FLOAT CONVERSION FIX
+            try:
+                qty = float(ing.get("quantity", 1))
+            except ValueError:
+                # If AI returns "all" or "some", default to 1.0
+                qty = 1.0
+            
             name = ing.get("name", "").lower()
             cost_unit = next((v for k,v in PRICE_DB.items() if k in name), PRICE_DB["default"])
             co2_unit = next((v for k,v in CO2_DB.items() if k in name), CO2_DB["default"])
@@ -210,8 +215,6 @@ def agent_c_analyst(recipes_plan, baseline_cost=20.0, baseline_co2=3.0):
     }
 
 def agent_d_scanner(img_before, img_after):
-    # Note: In a full version, you would pass both images to Gemini.
-    # Currently analyzing 'after' image for waste status.
     prompt = """
     Compare these two fridge images (Before and After).
     Identify what was eaten and what is new.
@@ -335,7 +338,8 @@ else:
                 status.update(label="❌ Error Occurred", state="error")
                 st.error(f"System Error: {str(e)}")
 
-    if 'plan' in st.session_state and mode == "Meal Planner":
+    # CHECK FOR BOTH PLAN AND REPORT TO PREVENT CRASH
+    if 'plan' in st.session_state and 'report' in st.session_state and mode == "Meal Planner":
         plan = st.session_state['plan']
         report = st.session_state['report']
         inv = st.session_state.get('inventory', {})
