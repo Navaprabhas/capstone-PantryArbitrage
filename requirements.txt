@@ -1,1 +1,6 @@
-
+google-generativeai
+streamlit
+duckduckgo-search
+pdfplumber
+Pillow
+requests
