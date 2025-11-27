@@ -272,7 +272,7 @@ def agent_d_scanner(img_before, img_after, roast_mode=False):
 st.markdown("""
 <div class="hero-header">
     <h1>🥗 PantryArbitrage</h1>
-    <p>The Zero-Waste Kitchen Concierge | Powered by Gemini 2.0</p>
+    <p>The Zero-Waste Kitchen Concierge | Powered by Gemini 2.0 flash </p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -292,7 +292,6 @@ if not api_key:
         st.markdown("### 1. Go to the Sidebar")
         st.markdown("### 2. Enter your Google API Key")
         st.markdown("### 3. Unlock the Agents")
-        st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3Z0ZnZ5bnR5bnR5bnR5bnR5bnR5bnR5bnR5bnR5bnR5bnR5/xUPGGDNsLvqsBOhu1e/giphy.gif", width=300)
 
 else:
     # --- APP IS UNLOCKED ---
