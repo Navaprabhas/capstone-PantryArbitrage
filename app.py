@@ -10,18 +10,59 @@ from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 
 # ==========================================
-# 1. CONFIGURATION & STYLE
+# 1. STYLE & CONFIGURATION (THE STUNNING PART)
 # ==========================================
 st.set_page_config(page_title="PantryArbitrage", page_icon="🥗", layout="wide")
 
-# Minimalist CSS: Cleaner fonts, rounded buttons, hidden clutter
+# Custom CSS for "Glassmorphism" look and animations
 st.markdown("""
 <style>
-    .main { background-color: #f8f9fa; color: #212529; }
-    .stButton>button { border-radius: 20px; font-weight: bold; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    h1 { font-family: 'Helvetica Neue', sans-serif; font-weight: 700; color: #2E7D32; }
-    .css-1544g2n { padding-top: 2rem; } /* Reduce top padding */
+    /* Gradient Background for Header */
+    .hero-header {
+        background: linear-gradient(135deg, #2E7D32 0%, #00C853 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .hero-header h1 { color: white !important; margin: 0; font-size: 3rem; }
+    .hero-header p { font-size: 1.2rem; opacity: 0.9; }
+
+    /* Card Styling */
+    .st-emotion-cache-1r6slb0 {
+        border: 1px solid #333;
+        border-radius: 10px;
+        padding: 20px;
+        background-color: #1E1E1E;
+    }
+    
+    /* Button Styling */
+    .stButton>button {
+        background: linear-gradient(90deg, #FF512F 0%, #DD2476 100%); /* Cool gradient for CTA */
+        color: white;
+        border: none;
+        padding: 0.5rem 2rem;
+        font-size: 1.2rem;
+        border-radius: 50px;
+        transition: transform 0.2s;
+    }
+    .stButton>button:hover {
+        transform: scale(1.05);
+    }
+
+    /* Highlight the Sidebar Arrow */
+    .arrow-highlight {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #00E676;
+        animation: bounce 1s infinite;
+    }
+    @keyframes bounce {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(-10px); }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -29,24 +70,26 @@ st.markdown("""
 api_key = os.environ.get("GOOGLE_API_KEY")
 
 # ==========================================
-# 2. SIDEBAR (Profile & Settings)
+# 2. SIDEBAR (LOGIC)
 # ==========================================
 with st.sidebar:
-    # Logo / Icon
     st.image("https://cdn-icons-png.flaticon.com/512/3014/3014520.png", width=60)
-    st.markdown("### **User Settings**")
-
-    # Security: API Key Input
+    
+    st.markdown("### ⚙️ Control Panel")
+    
+    # --- SECURITY INPUT ---
     if not api_key:
-        api_key = st.text_input("🔑 Enter Google API Key:", type="password", help="Your key is not stored. It's used only for this session.")
-
+        # Add a visual cue in the sidebar itself
+        st.markdown("👇 **STEP 1: ENTER KEY**")
+        api_key = st.text_input("🔑 Google API Key", type="password", help="Get this from Google AI Studio. It's free!")
+    
     if api_key:
         genai.configure(api_key=api_key)
         try:
             model = genai.GenerativeModel("gemini-2.0-flash")
             st.success("🟢 System Online")
         except Exception as e:
-            st.error(f"❌ Connection Error: {e}")
+            st.error(f"❌ Error: {e}")
             model = None
     else:
         st.warning("⚠️ Waiting for Key...")
@@ -54,14 +97,17 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Mode Selection with clear icons
-    mode = st.radio("🤖 Select Agent Mode:", ["🍳 Meal Planner", "📉 Waste Scanner"])
+    # Mode Selector
+    st.markdown("👇 **STEP 2: CHOOSE MODE**")
+    mode = st.radio("Select Agent Mode:", ["🍳 Meal Planner", "📉 Waste Scanner"], 
+                    captions=["Plan new meals", "Audit fridge waste"])
     
-    with st.expander("👤 Edit Profile (Preferences)"):
+    # Profile Settings (Hidden in Expander to keep it clean)
+    with st.expander("👤 User Preferences"):
         user_name = st.text_input("Name", "Guest")
         budget_input = st.number_input("Weekly Budget ($)", value=100.0, step=10.0)
-        allergies_input = st.text_input("Allergies", "None", help="Agent will strictly avoid these.")
-        dislikes_input = st.text_input("Dislikes", "Cilantro", help="Agent will try to avoid these.")
+        allergies_input = st.text_input("Allergies", "None")
+        dislikes_input = st.text_input("Dislikes", "Cilantro")
 
 # ==========================================
 # 3. HELPER FUNCTIONS (Logic Core)
@@ -202,17 +248,19 @@ def agent_c_analyst(recipes_plan, baseline_cost=20.0, baseline_co2=3.0):
         "co2_saved": round(baseline_e - total_co2, 2)
     }
 
-def agent_d_scanner(img_before, img_after):
-    prompt = """
-    Compare these two fridge images (Before and After).
-    Identify what was eaten and what is new.
-    Return STRICT JSON:
-    {
-      "items_consumed": ["item1", "item2"],
-      "waste_detected": ["item3"],
-      "advice": "Short advice."
-    }
-    """
+def agent_d_scanner(img_before, img_after, roast_mode=False):
+    if roast_mode:
+        prompt = """
+        Compare these fridge images. You are NOT a helpful assistant. 
+        You are a sarcastic, brutal celebrity chef (like Gordon Ramsay).
+        Roast the user for what they have in their fridge. Be funny but harsh.
+        Return STRICT JSON: {"items_consumed": [], "waste_detected": [], "advice": "Roast here."}
+        """
+    else:
+        prompt = """
+        Compare these images. Return STRICT JSON:
+        {"items_consumed": ["x"], "waste_detected": ["y"], "advice": "Helpful advice."}
+        """
     raw = generate_text(prompt, image=img_after, json_mode=True)
     return extract_json_from_text(raw)
 
@@ -220,162 +268,176 @@ def agent_d_scanner(img_before, img_after):
 # 4. MAIN UI LAYOUT
 # ==========================================
 
-# --- HERO SECTION ---
-st.title("🥗 PantryArbitrage")
-st.markdown("**The Zero-Waste Kitchen Concierge.** Stop wasting food, save money, and cook better.")
+# --- HERO HEADER ---
+st.markdown("""
+<div class="hero-header">
+    <h1>🥗 PantryArbitrage</h1>
+    <p>The Zero-Waste Kitchen Concierge | Powered by Gemini 2.0</p>
+</div>
+""", unsafe_allow_html=True)
 
-# --- ONBOARDING (Expandable Guide) ---
-with st.expander("ℹ️ How to use this app"):
-    st.markdown("""
-    **1. Choose a Mode (Sidebar):**
-    * **🍳 Meal Planner:** Generates recipes based on what you have.
-    * **📉 Waste Scanner:** Compares fridge photos to track what you ate vs. wasted.
+# --- WELCOME MODE (If no API Key) ---
+if not api_key:
+    st.info("👋 Welcome! It looks like you haven't connected your Brain yet.")
     
-    **2. Input Data:**
-    * Upload a **Fridge Photo** (Vision Agent).
-    * Upload a **Receipt** (Auditor Agent).
-    * Or just **Speak** your request!
-    
-    **3. Run:**
-    * Click the **Action Button** to let the Multi-Agent System work.
-    """)
-
-# --- MAIN COLUMNS ---
-col1, col2 = st.columns([1, 1.2], gap="large")
-
-if mode == "📉 Waste Scanner":
-    with col1:
-        st.subheader("📸 Audit Your Fridge")
-        st.info("Upload photos to track consumption habits.")
-        
-        img_after = st.file_uploader("Current Fridge (Today)", type=["jpg","png","jpeg"], key="after", help="Photo of your fridge right now.")
-        img_before = st.file_uploader("Previous Fridge (Optional)", type=["jpg","png","jpeg"], key="before", help="Photo from last week.")
-        
-        scan_btn = st.button("📉 Analyze Waste Report", type="primary", use_container_width=True)
-
-    with col2:
-        if scan_btn:
-            if not img_after:
-                st.warning("⚠️ Please upload the 'Current Fridge' photo.")
-            elif not model:
-                st.error("⚠️ Please connect the API Key in the sidebar.")
-            else:
-                 with st.spinner("🕵️ Agent D is comparing fridge states..."):
-                     try:
-                         pil_after = Image.open(img_after)
-                         res = agent_d_scanner(None, pil_after)
-                         
-                         st.subheader("📉 Analysis Results")
-                         
-                         # Use clean containers for results
-                         c1, c2 = st.columns(2)
-                         with c1:
-                            st.error(f"**🗑️ Waste Detected:**\n\n" + ", ".join(res.get('waste_detected', ['None'])))
-                         with c2:
-                            st.success(f"**😋 Eaten:**\n\n" + ", ".join(res.get('items_consumed', ['Unknown'])))
-
-                         if res.get('advice'):
-                             st.info(f"**💡 Chef's Advice:** {res.get('advice')}")
-
-                     except Exception as e:
-                         st.error(f"Error: {e}")
+    # Create columns to simulate "Pointing"
+    w1, w2 = st.columns([1, 2])
+    with w1:
+        st.markdown("""
+        <div class="arrow-highlight">
+            👈 START HERE
+        </div>
+        """, unsafe_allow_html=True)
+    with w2:
+        st.markdown("### 1. Go to the Sidebar")
+        st.markdown("### 2. Enter your Google API Key")
+        st.markdown("### 3. Unlock the Agents")
+        st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3Z0ZnZ5bnR5bnR5bnR5bnR5bnR5bnR5bnR5bnR5bnR5bnR5/xUPGGDNsLvqsBOhu1e/giphy.gif", width=300)
 
 else:
-    # --- MEAL PLANNER MODE ---
-    with col1:
-        st.subheader("1. What do you have?")
-        
-        # Tabs for cleaner input organization
-        tab1, tab2 = st.tabs(["📸 Vision Input", "🎙️ Voice/Text"])
-        
-        with tab1:
-            uploaded_img = st.file_uploader("Upload Fridge Photo", type=["jpg", "png", "jpeg"], help="Agent A will identify ingredients.")
-            uploaded_pdf = st.file_uploader("Upload Receipt (PDF)", type=["pdf"], help="Agent A will add these to your inventory.")
-
-        with tab2:
-            audio_val = st.audio_input("Record a Request")
-            voice_text = ""
-            if audio_val:
-                with st.spinner("🎧 Transcribing..."):
-                    voice_text = transcribe_audio(audio_val)
-                    st.success(f"🗣️ \"{voice_text}\"")
-            
-            default_txt = voice_text if voice_text else "Plan dinners for 3 days. I want to save money."
-            user_request = st.text_area("Your Goal:", value=default_txt, help="Tell the Chef what you crave.")
-
-        st.markdown("###") # Spacer
-        run_btn = st.button("✨ Generate Zero-Waste Plan", type="primary", use_container_width=True)
-
-    # --- ORCHESTRATOR LOGIC ---
-    if run_btn:
-        if not model:
-            st.error("Please enter your API Key in the sidebar.")
-        else:
-            # Build Profile
-            profile = UserProfile(
-                name=user_name,
-                allergies=[x.strip() for x in allergies_input.split(",") if x.strip()],
-                dislikes=[x.strip() for x in dislikes_input.split(",") if x.strip()],
-                weekly_budget_usd=budget_input
-            )
-
-            # Progress Bar / Status
-            status_box = st.status("🤖 AI Agents at work...", expanded=True)
-            
-            try:
-                # 1. Inputs
-                pil_image = Image.open(uploaded_img) if uploaded_img else None
-                pdf_path = None
-                if uploaded_pdf:
-                    with open("temp_receipt.pdf", "wb") as f: f.write(uploaded_pdf.getbuffer())
-                    pdf_path = "temp_receipt.pdf"
-
-                # 2. Execution Chain
-                status_box.write("👁️ **Agent A (Auditor):** Scanning inventory...")
-                inventory = agent_a_auditor(pdf_path, pil_image, manual_text=None)
-                st.session_state['inventory'] = inventory
-
-                status_box.write("👨‍🍳 **Agent B (Chef):** Searching recipes & planning...")
-                chef_plan = agent_b_chef(inventory, profile, user_request)
-                st.session_state['plan'] = chef_plan
-
-                status_box.write("📊 **Agent C (Analyst):** Calculating arbitrage...")
-                report = agent_c_analyst(chef_plan)
-                st.session_state['report'] = report
-
-                status_box.update(label="✅ Plan Ready!", state="complete", expanded=False)
-            
-            except Exception as e:
-                status_box.update(label="❌ Error", state="error")
-                st.error(f"System Error: {str(e)}")
-
-    # --- OUTPUT DISPLAY ---
-    if 'plan' in st.session_state and 'report' in st.session_state and mode == "🍳 Meal Planner":
-        plan = st.session_state['plan']
-        report = st.session_state['report']
-        inv = st.session_state.get('inventory', {})
+    # --- APP IS UNLOCKED ---
+    
+    # 1. WASTE SCANNER MODE
+    if mode == "📉 Waste Scanner":
+        col1, col2 = st.columns([1, 1], gap="large")
+        with col1:
+            with st.container(border=True):
+                st.subheader("📸 Step 1: Audit")
+                st.info("Upload your fridge photos to track habits.")
+                img_after = st.file_uploader("Current Fridge (Today)", type=["jpg","png","jpeg"], key="after")
+                img_before = st.file_uploader("Previous Fridge (Last Week)", type=["jpg","png","jpeg"], key="before")
+                roast = st.toggle("🔥 Enable 'Gordon Ramsay' Mode")
+                
+                st.markdown("###")
+                scan_btn = st.button("📉 Analyze Waste Report", type="primary", use_container_width=True)
 
         with col2:
-            st.subheader("📊 The Value Proposition")
-            
-            # Metrics Row
-            m1, m2, m3 = st.columns(3)
-            m1.metric("💰 Money Saved", f"${report['money_saved']}", delta="Arbitrage")
-            m2.metric("🌍 CO₂ Saved", f"{report['co2_saved']} kg", delta="Impact")
-            m3.metric("🥘 Meals Planned", report['num_meals'])
+            if scan_btn:
+                if not img_after:
+                    st.warning("⚠️ Please upload the 'Current Fridge' photo.")
+                else:
+                     with st.spinner("🕵️ Agent D is judging your fridge..." if roast else "🕵️ Agent D is comparing states..."):
+                         try:
+                             pil_after = Image.open(img_after)
+                             res = agent_d_scanner(None, pil_after, roast_mode=roast)
+                             
+                             st.balloons() # Fun!
+                             
+                             # Results Card
+                             with st.container(border=True):
+                                 st.subheader("📉 Analysis Results")
+                                 c1, c2 = st.columns(2)
+                                 c1.error(f"**🗑️ Waste:**\n\n" + ", ".join(res.get('waste_detected', ['None'])))
+                                 c2.success(f"**😋 Eaten:**\n\n" + ", ".join(res.get('items_consumed', ['Unknown'])))
+                                 
+                                 advice = res.get('advice')
+                                 if advice:
+                                     st.markdown("---")
+                                     if roast: st.warning(f"**🔥 ROAST:** {advice}")
+                                     else: st.info(f"**💡 ADVICE:** {advice}")
 
-            st.markdown("---")
-            
-            st.subheader("🍽️ Your Zero-Waste Plan")
-            st.info(f"**Chef's Note:** {plan.get('narrative_plan', 'Ready to cook!')}")
+                         except Exception as e:
+                             st.error(f"Error: {e}")
 
-            # Recipe Cards
-            for r in plan.get("recipes", []):
-                with st.expander(f"🍳 {r.get('name')}", expanded=True):
-                    st.markdown(f"*{r.get('description')}*")
-                    st.markdown("**Key Ingredients Used:**")
-                    for i in r.get("ingredients_used", []):
-                        st.text(f"• {i.get('name')}: {i.get('quantity')}")
-            
-            with st.expander("🔍 View Raw Inventory Data"):
-                st.json(inv)
+    # 2. MEAL PLANNER MODE
+    else:
+        col1, col2 = st.columns([1, 1.2], gap="large")
+        
+        # --- LEFT COLUMN (INPUTS) ---
+        with col1:
+            with st.container(border=True):
+                st.subheader("🥣 Step 1: Input Ingredients")
+                
+                tab_cam, tab_mic = st.tabs(["📸 Vision Input", "🎙️ Voice Input"])
+                
+                with tab_cam:
+                    st.caption("Upload a photo of your fridge or receipt.")
+                    uploaded_img = st.file_uploader("Fridge Photo", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+                    uploaded_pdf = st.file_uploader("Receipt PDF", type=["pdf"], label_visibility="collapsed")
+                
+                with tab_mic:
+                    st.caption("Tell the Chef what you want.")
+                    audio_val = st.audio_input("Record Request")
+                    voice_text = ""
+                    if audio_val:
+                        with st.spinner("Transcribing..."):
+                            voice_text = transcribe_audio(audio_val)
+                            st.success(f"🗣️ \"{voice_text}\"")
+                    
+                    default_txt = voice_text if voice_text else "Plan dinners for 3 days. I want to save money."
+                    user_request = st.text_area("Your Goal:", value=default_txt)
+
+            st.markdown("###")
+            run_btn = st.button("✨ Generate Zero-Waste Plan", type="primary", use_container_width=True)
+
+        # --- RIGHT COLUMN (RESULTS) ---
+        with col2:
+            if run_btn:
+                # Build Profile
+                profile = UserProfile(
+                    name=user_name,
+                    allergies=[x.strip() for x in allergies_input.split(",") if x.strip()],
+                    dislikes=[x.strip() for x in dislikes_input.split(",") if x.strip()],
+                    weekly_budget_usd=budget_input
+                )
+
+                status_box = st.status("🤖 Orchestrating Agents...", expanded=True)
+                
+                try:
+                    # 1. Inputs
+                    pil_image = Image.open(uploaded_img) if uploaded_img else None
+                    pdf_path = None
+                    if uploaded_pdf:
+                        with open("temp_receipt.pdf", "wb") as f: f.write(uploaded_pdf.getbuffer())
+                        pdf_path = "temp_receipt.pdf"
+
+                    # 2. Execution Chain
+                    status_box.write("👁️ **Agent A (Auditor):** Scanning inventory...")
+                    inventory = agent_a_auditor(pdf_path, pil_image, manual_text=None)
+                    st.session_state['inventory'] = inventory
+
+                    status_box.write("👨‍🍳 **Agent B (Chef):** Searching recipes...")
+                    chef_plan = agent_b_chef(inventory, profile, user_request)
+                    st.session_state['plan'] = chef_plan
+
+                    status_box.write("📊 **Agent C (Analyst):** Calculating arbitrage...")
+                    report = agent_c_analyst(chef_plan)
+                    st.session_state['report'] = report
+
+                    status_box.update(label="✅ Plan Ready!", state="complete", expanded=False)
+                    st.balloons()
+                
+                except Exception as e:
+                    status_box.update(label="❌ Error", state="error")
+                    st.error(f"System Error: {str(e)}")
+
+            # Display Results if they exist
+            if 'plan' in st.session_state and 'report' in st.session_state:
+                plan = st.session_state['plan']
+                report = st.session_state['report']
+                inv = st.session_state.get('inventory', {})
+
+                # Value Metrics
+                with st.container(border=True):
+                    st.subheader("📊 The Value")
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("💰 Money Saved", f"${report['money_saved']}", delta="Arbitrage")
+                    m2.metric("🌍 CO₂ Saved", f"{report['co2_saved']} kg", delta="Impact")
+                    m3.metric("🥘 Meals", report['num_meals'])
+
+                st.markdown("###")
+                
+                # Recipe Plan
+                with st.container(border=True):
+                    st.subheader("🍽️ The Plan")
+                    st.info(f"**Chef's Note:** {plan.get('narrative_plan', 'Ready to cook!')}")
+                    
+                    for r in plan.get("recipes", []):
+                        with st.expander(f"🍳 {r.get('name')}", expanded=True):
+                            st.markdown(f"*{r.get('description')}*")
+                            st.markdown("**Key Ingredients:**")
+                            for i in r.get("ingredients_used", []):
+                                st.text(f"• {i.get('name')}: {i.get('quantity')}")
+                
+                with st.expander("🔍 Debug: View Raw Inventory"):
+                    st.json(inv)
